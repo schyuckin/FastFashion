@@ -1,18 +1,26 @@
  // Environment setup
+ const platform = './img/conveyer.png' // This nomenclature might cause some problems later
+ const tshirt = './img/tshirt.png'
+ const background = './img/background.png'
+ const hills = './img/hills.png'
  const canvas = document.querySelector('canvas')
  const c = canvas.getContext("2d")
 
- // Changes the canvas based on the window size when the page is loaded
- // window part is not necessary but I left it in for clarity
- canvas.width = window.innerWidth
- canvas.height = window.innerHeight
-
+ // Changed to a custom ratio for an optimized experience
+ canvas.width = 1024 // window.innerWidth
+ canvas.height = 576 // window.innerHeight
+ 
  const gravity = 0.15; // World's gravity when falling down
  var xSpeed = 2 // Player's movement speed on X-axis
  var yForce = 8 // Player's jump force
- var canJump = true // Is the player allowed to jump
- var endGamePos = 1500 // (Approximate) end of the level
+
+ var tshirtDropOffset = 50 // Specific to the t-shirt, falling updates
+
+ var canJump = true // Is the player allowed to jump now
  var jumpingCD = 800 // Cooldown (in ms) before the player can jump again
+
+ var endGamePos = 1500 // (Approximate) end of the level
+ var parallaxMovement = 1 // Amount of movement applied to parallax backgrounds
 
  class Player {
     constructor(){
@@ -26,13 +34,13 @@
             y: 0
 
          }
-         this.width = 30
-         this.height = 30
+         this.width = 140
+         this.height = 140
+         this.image = createImage(tshirt)
     }
     
     draw(){
-        c.fillStyle = 'red'
-        c.fillRect(this.position.x, this.position.y, this.width, this.height)
+        c.drawImage(this.image, this.position.x, this.position.y, this.width, this.height)
     }
 
     update(){
@@ -42,12 +50,14 @@
 
         if (this.position.y + this.height + this.velocity.y <= canvas.height)
         this.velocity.y += gravity
-        else this.velocity.y = 0
+        else{
+
+        }
     }
  }
 
  class Platform {
-    constructor({x, y}){
+    constructor({x, y, image}){
 
         this.position = {
             // Code shortcut
@@ -56,26 +66,76 @@
             x,
             y
         }
-
-        this.width = 200
-        this.height = 20
+        
+        this.image = image
+        this.width = image.width
+        this.height = image.height
 
     }
 
     draw() {
-        c.fillStyle = 'blue'
-        c.fillRect(this.position.x, this.position.y, this.width, this.height)
+        c.drawImage(this.image, this.position.x, this.position.y)
     }
  }
 
- const player = new Player()
- const platforms = [new Platform({
-    x: 200, 
-    y: 100
- }), new Platform({
-    x: 500, 
-    y: 150
- })]
+ class GenericObject {
+    constructor({x, y, image}){
+        this.position = {
+            // Code shortcut
+            // x = x: x,
+            // y = y: y
+            x,
+            y
+        }
+        
+        this.image = image
+        this.width = image.width
+        this.height = image.height
+
+    }
+
+    draw() {
+        c.drawImage(this.image, this.position.x, this.position.y)
+    }
+ }
+
+ function createImage(imageSrc){
+    const image = new Image()
+    image.src = imageSrc
+    return image
+ }
+
+ let platformImage = createImage(platform)
+
+ let player = new Player()
+ let platforms = [
+    new Platform({
+        x: -1, 
+        y: 488,
+        image: platformImage
+ }), 
+ new Platform({
+    x: platformImage.width - 3, 
+    y: 488,
+    image: platformImage
+ }),
+ new Platform({
+    x: platformImage.width * 2 + 100, 
+    y: 488,
+    image: platformImage
+ }),
+]
+
+ let genericObjects = [new GenericObject({
+    x: -1,
+    y: -1,
+    image: createImage(background)
+ }), new GenericObject({
+    x: -1,
+    y: -1,
+    image: createImage(hills)
+ }), 
+]
  // "Keys" is constant, but its values are not
   const keys = {
     right: {
@@ -89,11 +149,54 @@
  let scrollOffset = 0
  let endGameReached = false
 
+ function init(){
+
+    platformImage = createImage(platform)
+    player = new Player()
+    platforms = [
+    new Platform({
+        x: -1, 
+        y: 488,
+        image: platformImage
+ }), 
+ new Platform({
+    x: platformImage.width - 3, 
+    y: 488,
+    image: platformImage
+ }),
+ new Platform({
+    x: platformImage.width * 2 + 100, 
+    y: 488,
+    image: platformImage
+ }),
+]   
+    genericObjects = [new GenericObject({
+    x: -1,
+    y: -1,
+    image: createImage(background)
+ }), new GenericObject({
+    x: -1,
+    y: -1,
+    image: createImage(hills)
+ }), 
+]
+
+}
+
+
  // Future function for the end of the game / level
  function endGame(){
-    if (scrollOffset >= endGamePos && !endGameReached){
+
+    if (scrollOffset > endGamePos & !endGameReached) {
         endGameReached = true;
-        console.log("End of demo!")
+        console.log("You won the game!")
+    }
+ }
+
+ function loseCondition(){
+    if (player.position.y > canvas.height){
+        init()
+        scrollOffset = 0
     }
  }
 
@@ -105,18 +208,24 @@
  // Pretty straightforward, updates the screen
  function animate(){
     requestAnimationFrame(animate)
-    c.clearRect(0, 0, canvas.width, canvas.height)
-    player.update()
+    c.fillStyle = 'white'
+    c.fillRect(0, 0, canvas.width, canvas.height)
+
+    genericObjects.forEach((genericObject) => {
+        genericObject.draw()
+    })
+     // Looping through an array
     platforms.forEach((platform) => {
         platform.draw()
-    }) // Looping through an array
+    })
+    player.update()
 
     /*Last part of the first condition is from me, it prevents the player from going to one side
     if both keys are pressed at the same time. We have to watch out for it since it might cause
     some problems later on */
     if (keys.right.pressed && !keys.left.pressed && player.position.x < 400)
         player.velocity.x = xSpeed
-    else if (keys.left.pressed && !keys.right.pressed && player.position.x > 50)
+    else if ((keys.left.pressed && !keys.right.pressed && player.position.x > 50)|| (keys.left.pressed && scrollOffset == 0 && player.position.x > 0))
         player.velocity.x = -xSpeed
     else {
         player.velocity.x = 0
@@ -126,12 +235,18 @@
             platforms.forEach((platform) => {
                 platform.position.x -= xSpeed
             })
+            genericObjects.forEach(genericObject => {
+            genericObject.position.x -=parallaxMovement    
+            })
         }
-        else if (keys.left.pressed){
+        else if (keys.left.pressed && scrollOffset > 0){
             scrollOffset -= xSpeed
             platforms.forEach((platform) => {
                 platform.position.x += xSpeed
             })
+            genericObjects.forEach(genericObject => {
+                genericObject.position.x += parallaxMovement    
+                })
         }
     }
 
@@ -139,11 +254,13 @@
     platforms.forEach((platform) => {
         if (player.position.y + player.height <= platform.position.y && 
             player.position.y + player.height + player.velocity.y >= platform.position.y &&
-            player.position.x + player.width >= platform.position.x && 
-            player.position.x <= platform.position.x + platform.width){
+            player.position.x + player.width - tshirtDropOffset >= platform.position.x && 
+            player.position.x <= platform.position.x + platform.width - tshirtDropOffset){
             player.velocity.y = 0
         }
     })
+
+    loseCondition()
     endGame()
  }
 
